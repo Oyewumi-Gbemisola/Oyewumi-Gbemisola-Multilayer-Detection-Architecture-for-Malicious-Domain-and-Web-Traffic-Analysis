@@ -1,0 +1,6 @@
+app.py                  ← Flask routes
+scoring.py              ← Detection logic
+templates/index.html    ← Frontend
+static/style.css        ← Styling
+static/script.js        ← Frontend logic
+models/*.pkl            ← Pre-trained ML models
