@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G-URLs 2.0 — Malicious Domain Analyser</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<!-- ── NAVIGATION ─────────────────────────────────────────── -->
+<nav class="navbar">
+    <div class="nav-brand">
+        <i class="fas fa-shield-alt"></i>
+        <span>G-URLs <span class="version">2.0</span></span>
+    </div>
+    <div class="nav-links">
+        <a href="#" class="nav-link active"
+           onclick="showPage('home', this)">
+            <i class="fas fa-search"></i> Analyser
+        </a>
+        <a href="#" class="nav-link"
+           onclick="showPage('about', this)">
+            <i class="fas fa-info-circle"></i> About
+        </a>
+    </div>
+    <div class="nav-badge">
+        <span class="badge">Masters Research Project</span>
+    </div>
+</nav>
+
+<!-- ── HOME PAGE ──────────────────────────────────────────── -->
+<div id="page-home" class="page active">
+
+    <!-- Hero -->
+    <div class="hero">
+        <div class="hero-content">
+            <div class="hero-icon">
+                <i class="fas fa-shield-virus"></i>
+            </div>
+            <h1>G-URLs <span class="highlight">2.0</span></h1>
+            <p class="hero-subtitle">
+                Multi-Layer Behavioural Detection System
+            </p>
+            <p class="hero-desc">
+                Analyses any URL across four detection layers —
+                DNS behaviour, TLS metadata, network flow,
+                and URL lexical structure — with rule-based
+                scoring, XGBoost ML predictions, and
+                VirusTotal threat intelligence.
+            </p>
+        </div>
+    </div>
+
+    <!-- Input -->
+    <div class="analyser-section">
+        <div class="input-container">
+            <div class="input-wrapper">
+                <i class="fas fa-link input-icon"></i>
+                <input type="text" id="url-input"
+                    placeholder="Enter a URL or domain — e.g. https://example.com"
+                    onkeypress="handleKeyPress(event)"/>
+                <button class="analyse-btn"
+                        onclick="analyseURL()">
+                    <i class="fas fa-search"></i> Analyse
+                </button>
+            </div>
+            <div class="example-urls">
+                <span class="example-label">Try:</span>
+                <button class="example-btn benign"
+                    onclick="setURL('https://www.google.com')">
+                    <i class="fas fa-check-circle"></i>
+                    google.com
+                </button>
+                <button class="example-btn benign"
+                    onclick="setURL('https://www.bbc.co.uk')">
+                    <i class="fas fa-check-circle"></i>
+                    bbc.co.uk
+                </button>
+                <button class="example-btn malicious"
+                    onclick="setURL('http://paypal-secure-verify.suspicious-login.xyz')">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    suspicious URL
+                </button>
+                <button class="example-btn malicious"
+                    onclick="setURL('http://192.168.1.1/admin/login')">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    IP-based URL
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p class="loading-text">
+            Analysing across all detection layers...
+        </p>
+        <div class="loading-steps">
+            <div class="step" id="step-dns">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                Module A — DNS Analysis
+            </div>
+            <div class="step" id="step-tls">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                Module B — TLS Metadata
+            </div>
+            <div class="step" id="step-network">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                Module C — Network Behaviour
+            </div>
+            <div class="step" id="step-url">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                Module D — URL Analysis
+            </div>
+            <div class="step" id="step-ml">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                XGBoost ML Prediction
+            </div>
+            <div class="step" id="step-vt">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                VirusTotal Intelligence
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="results-section hidden">
+
+        <!-- Verdict Banner -->
+        <div class="verdict-banner" id="verdict-banner">
+            <div class="verdict-left">
+                <div class="verdict-icon" id="verdict-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="verdict-text">
+                    <h2 id="verdict-title">ANALYSING...</h2>
+                    <p id="verdict-url"
+                       class="verdict-url"></p>
+                    <p class="verdict-method">
+                        Rule-Based Scoring Engine
+                    </p>
+                </div>
+            </div>
+            <div class="verdict-right">
+                <div class="gauge-container">
+                    <svg class="gauge"
+                         viewBox="0 0 200 130"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M 20 110 A 80 80 0 0 1 180 110"
+                              fill="none" stroke="#1a2540"
+                              stroke-width="18"
+                              stroke-linecap="round"/>
+                        <path id="gauge-fill"
+                              d="M 20 110 A 80 80 0 0 1 180 110"
+                              fill="none" stroke="#27ae60"
+                              stroke-width="18"
+                              stroke-linecap="round"
+                              stroke-dasharray="0 251.2"/>
+                        <text x="100" y="100"
+                              text-anchor="middle"
+                              font-size="22"
+                              font-weight="800"
+                              font-family="Inter,sans-serif"
+                              fill="#e8eaf0"
+                              id="gauge-number">0%</text>
+                        <text x="100" y="120"
+                              text-anchor="middle"
+                              font-size="10"
+                              font-family="Inter,sans-serif"
+                              fill="#8892a4">Risk Score</text>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Four Module Cards -->
+        <div class="modules-grid">
+            <div class="module-card" id="card-dns">
+                <div class="module-header">
+                    <div class="module-icon dns-icon">
+                        <i class="fas fa-network-wired"></i>
+                    </div>
+                    <div class="module-title">
+                        <h3>Module A</h3>
+                        <span>DNS Behaviour</span>
+                    </div>
+                    <div class="module-score">
+                        <span class="score-num"
+                              id="dns-score">0</span>
+                        <span class="score-max">/18</span>
+                    </div>
+                </div>
+                <div class="module-verdict"
+                     id="dns-verdict">LOW RISK</div>
+                <div class="module-rules"
+                     id="dns-rules"></div>
+            </div>
+
+            <div class="module-card" id="card-tls">
+                <div class="module-header">
+                    <div class="module-icon tls-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <div class="module-title">
+                        <h3>Module B</h3>
+                        <span>TLS Metadata</span>
+                    </div>
+                    <div class="module-score">
+                        <span class="score-num"
+                              id="tls-score">0</span>
+                        <span class="score-max">/29</span>
+                    </div>
+                </div>
+                <div class="module-verdict"
+                     id="tls-verdict">LOW RISK</div>
+                <div class="module-rules"
+                     id="tls-rules"></div>
+            </div>
+
+            <div class="module-card" id="card-network">
+                <div class="module-header">
+                    <div class="module-icon network-icon">
+                        <i class="fas fa-project-diagram"></i>
+                    </div>
+                    <div class="module-title">
+                        <h3>Module C</h3>
+                        <span>Network Behaviour</span>
+                    </div>
+                    <div class="module-score">
+                        <span class="score-num"
+                              id="network-score">0</span>
+                        <span class="score-max">/29</span>
+                    </div>
+                </div>
+                <div class="module-verdict"
+                     id="network-verdict">LOW RISK</div>
+                <div class="module-rules"
+                     id="network-rules"></div>
+            </div>
+
+            <div class="module-card" id="card-url">
+                <div class="module-header">
+                    <div class="module-icon url-icon">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <div class="module-title">
+                        <h3>Module D</h3>
+                        <span>URL Lexical</span>
+                    </div>
+                    <div class="module-score">
+                        <span class="score-num"
+                              id="url-score">0</span>
+                        <span class="score-max">/29</span>
+                    </div>
+                </div>
+                <div class="module-verdict"
+                     id="url-verdict">LOW RISK</div>
+                <div class="module-rules"
+                     id="url-rules"></div>
+            </div>
+        </div>
+
+        <!-- Extracted Features Panel -->
+        <div class="features-panel">
+            <div class="panel-header"
+                 onclick="togglePanel('features-body')">
+                <div class="panel-title">
+                    <i class="fas fa-table"></i>
+                    <h3>Extracted Features</h3>
+                    <span class="panel-badge">
+                        Raw values from live scan
+                    </span>
+                </div>
+                <i class="fas fa-chevron-down
+                           toggle-icon"
+                   id="features-toggle"></i>
+            </div>
+            <div id="features-body"
+                 class="panel-body hidden">
+                <div class="features-grid"
+                     id="features-grid"></div>
+            </div>
+        </div>
+
+        <!-- ML Results Panel -->
+        <!-- ML Results Panel -->
+<div class="ml-panel">
+    <div class="panel-header"
+         onclick="togglePanel('ml-body')">
+        <div class="panel-title">
+            <i class="fas fa-brain"></i>
+            <h3>ML Prediction — Phase 5 Comparison</h3>
+            <span class="panel-badge ml-badge">
+                LR · DT · RF · XGBoost
+            </span>
+        </div>
+        <i class="fas fa-chevron-down toggle-icon"
+           id="ml-toggle"></i>
+    </div>
+    <div id="ml-body" class="panel-body hidden">
+
+        <p class="ml-note">
+            Four ML models trained on 2.3M labelled
+            samples. RF and XGBoost used for primary
+            live prediction (tree-based, scale-robust).
+            LR and DT shown for academic Phase 5
+            comparison. Features clamped to training
+            ranges — page-content features
+            (DomainTitleMatchScore, HasHiddenFields)
+            use context-aware proxies as live page
+            fetching is outside standalone deployment
+            scope.
+        </p>
+
+        <!-- Per-module model comparison table -->
+        <div class="ml-modules">
+
+            <!-- DNS -->
+            <div class="ml-module-block dns-ml-block">
+                <div class="ml-module-title">
+                    <i class="fas fa-network-wired"></i>
+                    Module A — DNS
+                    <span class="ml-f1-ref">
+                        LR:0.780 DT:0.869
+                        RF:0.941 XGB:0.929
+                    </span>
+                </div>
+                <div class="ml-model-row"
+                     id="ml-dns-row"></div>
+            </div>
+
+            <!-- TLS -->
+            <div class="ml-module-block tls-ml-block">
+                <div class="ml-module-title">
+                    <i class="fas fa-lock"></i>
+                    Module B — TLS
+                    <span class="ml-f1-ref">
+                        LR:0.689 DT:0.768
+                        RF:0.774 XGB:0.773
+                    </span>
+                </div>
+                <div class="ml-model-row"
+                     id="ml-tls-row"></div>
+            </div>
+
+            <!-- Network -->
+            <div class="ml-module-block net-ml-block">
+                <div class="ml-module-title">
+                    <i class="fas fa-project-diagram">
+                    </i>
+                    Module C — Network
+                    <span class="ml-f1-ref">
+                        LR:0.883 DT:0.994
+                        RF:0.999 XGB:0.998
+                    </span>
+                </div>
+                <div class="ml-model-row"
+                     id="ml-net-row"></div>
+            </div>
+
+            <!-- URL -->
+            <div class="ml-module-block url-ml-block">
+                <div class="ml-module-title">
+                    <i class="fas fa-link"></i>
+                    Module D — URL
+                    <span class="ml-f1-ref">
+                        LR:1.000 DT:1.000
+                        RF:1.000 XGB:1.000
+                    </span>
+                </div>
+                <div class="ml-model-row"
+                     id="ml-url-row"></div>
+            </div>
+
+        </div>
+
+        <!-- Combined verdicts -->
+        <div class="ml-combined-section">
+            <div class="ml-combined-item">
+                <div class="ml-combined-label">
+                    Random Forest Combined
+                    <span class="primary-badge">
+                        Primary Live Prediction
+                    </span>
+                </div>
+                <div class="ml-combined-verdict"
+                     id="ml-rf-verdict">—</div>
+                <div class="ml-combined-prob"
+                     id="ml-rf-prob">—</div>
+            </div>
+            <div class="ml-combined-item">
+                <div class="ml-combined-label">
+                    XGBoost Combined
+                </div>
+                <div class="ml-combined-verdict"
+                     id="ml-xgb-verdict">—</div>
+                <div class="ml-combined-prob"
+                     id="ml-xgb-prob">—</div>
+            </div>
+        </div>
+
+        <!-- Three-way comparison -->
+        <div class="comparison-box">
+            <h4>
+                <i class="fas fa-balance-scale"></i>
+                Rule-Based vs RF vs XGBoost
+            </h4>
+            <div class="comparison-row">
+                <div class="comparison-item">
+                    <span class="comp-label">
+                        Rule-Based Engine
+                    </span>
+                    <span class="comp-verdict"
+                          id="comp-rules">—</span>
+                </div>
+                <div class="comparison-divider">vs</div>
+                <div class="comparison-item">
+                    <span class="comp-label">
+                        Random Forest
+                    </span>
+                    <span class="comp-verdict"
+                          id="comp-rf">—</span>
+                </div>
+                <div class="comparison-divider">vs</div>
+                <div class="comparison-item">
+                    <span class="comp-label">
+                        XGBoost
+                    </span>
+                    <span class="comp-verdict"
+                          id="comp-xgb">—</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+        <!-- VirusTotal Panel -->
+        <div class="vt-panel">
+            <div class="vt-header">
+                <div class="vt-title">
+                    <i class="fas fa-virus-slash"></i>
+                    <h3>VirusTotal Threat Intelligence</h3>
+                    <span class="vt-badge">
+                        Industry Comparison
+                    </span>
+                </div>
+            </div>
+            <div class="vt-content">
+                <div class="vt-stats">
+                    <div class="vt-stat malicious">
+                        <span class="stat-num"
+                              id="vt-malicious">0</span>
+                        <span class="stat-label">
+                            Malicious
+                        </span>
+                    </div>
+                    <div class="vt-stat suspicious">
+                        <span class="stat-num"
+                              id="vt-suspicious">0</span>
+                        <span class="stat-label">
+                            Suspicious
+                        </span>
+                    </div>
+                    <div class="vt-stat harmless">
+                        <span class="stat-num"
+                              id="vt-harmless">0</span>
+                        <span class="stat-label">
+                            Harmless
+                        </span>
+                    </div>
+                    <div class="vt-stat undetected">
+                        <span class="stat-num"
+                              id="vt-undetected">0</span>
+                        <span class="stat-label">
+                            Undetected
+                        </span>
+                    </div>
+                </div>
+                <div class="vt-verdict-box">
+                    <span class="vt-verdict-label">
+                        VirusTotal Verdict:
+                    </span>
+                    <span class="vt-verdict-value"
+                          id="vt-verdict">—</span>
+                </div>
+                <div class="vt-flagged"
+                     id="vt-flagged"></div>
+            </div>
+            <div class="comparison-box">
+                <h4>
+                    <i class="fas fa-balance-scale"></i>
+                    Three-Way System Comparison
+                </h4>
+                <div class="comparison-row three-way">
+                    <div class="comparison-item">
+                        <span class="comp-label">
+                            G-URLs 2.0<br>(Behavioural)
+                        </span>
+                        <span class="comp-verdict"
+                              id="comp-gurls">—</span>
+                    </div>
+                    <div class="comparison-divider">vs</div>
+                    <div class="comparison-item">
+                        <span class="comp-label">
+                            XGBoost ML
+                        </span>
+                        <span class="comp-verdict"
+                              id="comp-ml-vt">—</span>
+                    </div>
+                    <div class="comparison-divider">vs</div>
+                    <div class="comparison-item">
+                        <span class="comp-label">
+                            VirusTotal<br>(Reputation)
+                        </span>
+                        <span class="comp-verdict"
+                              id="comp-vt">—</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis History -->
+        <div class="history-section">
+            <h3>
+                <i class="fas fa-history"></i>
+                Analysis History
+            </h3>
+            <div class="history-table-wrapper">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>DNS</th>
+                            <th>TLS</th>
+                            <th>Net</th>
+                            <th>URL</th>
+                            <th>Combined %</th>
+                            <th>Rule Verdict</th>
+                            <th>ML Verdict</th>
+                            <th>VirusTotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body">
+                        <tr class="history-empty">
+                            <td colspan="9">
+                                No analyses yet
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ── ABOUT PAGE ──────────────────────────────────────────── -->
+<div id="page-about" class="page hidden">
+    <div class="about-container">
+        <div class="about-header">
+            <h1>About G-URLs
+                <span class="highlight">2.0</span></h1>
+            <p>Multi-Layer Behavioural Detection Architecture
+               for Malicious Domain and Web Traffic Analysis</p>
+        </div>
+        <div class="about-grid">
+            <div class="about-card">
+                <div class="about-icon">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <h3>Academic Context</h3>
+                <p>Masters dissertation artefact in
+                Cybersecurity implementing a multi-layer
+                behavioural detection architecture evaluated
+                across four datasets comprising over 2.3
+                million labelled samples.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-icon">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+                <h3>Four Detection Layers</h3>
+                <p>DNS infrastructure analysis, TLS certificate
+                metadata, network flow behaviour, and URL
+                lexical structure — each catching different
+                threat subsets to provide complementary
+                coverage.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h3>ML Enhancement</h3>
+                <p>XGBoost models trained on all four datasets
+                provide predictions alongside rule-based
+                verdicts. Rule-based F1: DNS 0.675, TLS 0.359,
+                Network 0.828, URL 0.978. XGBoost F1: DNS
+                0.929, TLS 0.773, Network 0.998, URL 1.000.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-icon">
+                    <i class="fas fa-virus-slash"></i>
+                </div>
+                <h3>VirusTotal Integration</h3>
+                <p>Results cross-referenced against 70+
+                antivirus engines providing direct comparison
+                between behavioural detection and
+                reputation-based industry detection —
+                validating the Phase 4 baseline findings.</p>
+            </div>
+        </div>
+        <div class="module-details">
+            <h2>Detection Modules</h2>
+            <div class="module-detail-card">
+                <div class="detail-header dns-bg">
+                    <i class="fas fa-network-wired"></i>
+                    <h3>Module A — DNS Behaviour
+                        (F1: 0.675, Recall: 0.903)</h3>
+                </div>
+                <div class="detail-body">
+                    <p>Live DNS lookup analysing TTL, MX
+                    records, nameserver patterns, domain age,
+                    and DNSSEC. 18 weighted rules calibrated
+                    on 530,468 Zenodo CESNET domains.
+                    High recall design surfaces 90.3% of
+                    malicious domains for review.</p>
+                </div>
+            </div>
+            <div class="module-detail-card">
+                <div class="detail-header tls-bg">
+                    <i class="fas fa-lock"></i>
+                    <h3>Module B — TLS Metadata
+                        (F1: 0.359)</h3>
+                </div>
+                <div class="detail-body">
+                    <p>Live TLS handshake reading certificate
+                    issuer, validity, CT log presence, and
+                    chain length. Low standalone F1 reflects
+                    APT actors deliberately using legitimate
+                    certificates — motivating multi-layer
+                    combination.</p>
+                </div>
+            </div>
+            <div class="module-detail-card">
+                <div class="detail-header network-bg">
+                    <i class="fas fa-project-diagram"></i>
+                    <h3>Module C — Network Behaviour
+                        (F1: 0.828)</h3>
+                </div>
+                <div class="detail-body">
+                    <p>Network connectivity probing for HTTP/
+                    HTTPS availability, redirect behaviour,
+                    and response characteristics. Full
+                    packet-level analysis requires network
+                    monitoring infrastructure deployment.</p>
+                </div>
+            </div>
+            <div class="module-detail-card">
+                <div class="detail-header url-bg">
+                    <i class="fas fa-link"></i>
+                    <h3>Module D — URL Lexical
+                        (F1: 0.978)</h3>
+                </div>
+                <div class="detail-body">
+                    <p>URL string analysis — length, similarity
+                    index, digit ratio, HTTPS, special
+                    characters. Strongest standalone module.
+                    Expert rules achieve F1 0.978 vs ML
+                    perfect 1.000 — 0.022 gap demonstrating
+                    near-optimal rule design.</p>
+                </div>
+            </div>
+        </div>
+        <div class="about-footer">
+            <p>G-URLs 2.0 — Evolution of G-URL
+               (BSc, IBM X-Force Integration)</p>
+            <p>Datasets: Zenodo CESNET ·
+               CICIDS2017 · PhiUSIIL</p>
+            <p>Masters in Cybersecurity Dissertation</p>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}">
+</script>
+</body>
+</html>
